@@ -968,6 +968,17 @@ long time_in_ms() {
     return time.tv_sec * 1000 + time.tv_nsec / 1000000;
 }
 
+void time_in_str(char* buffer, int size) {
+    time_t raw_time;
+    time(&raw_time);
+
+    // 转换为本地时间
+    struct tm *local_time = localtime(&raw_time);
+
+    // 格式化时间
+    strftime(buffer, size, "%Y-%m-%d %H:%M:%S", local_time);
+}
+
 // ----------------------------------------------------------------------------
 // generation loop
 
@@ -1080,6 +1091,8 @@ void chat(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler,
     int user_idx;
     int assistent_idx = 0;
     int eof = 2;
+    char time_str[80];
+    char user_str[100];
 
     // start the main loop
     int8_t user_turn = 1; // user starts
@@ -1110,7 +1123,10 @@ void chat(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler,
                 strcpy(user_prompt, cli_user_prompt);
             } else {
                 // otherwise get user prompt from stdin
-                read_stdin("User: ", user_prompt, sizeof(user_prompt));
+                time_in_str(time_str, 80);
+                char io_template[] = "(%s)  User: ";
+                sprintf(user_str, io_template, time_str);
+                read_stdin(user_str, user_prompt, sizeof(user_prompt));
                 // printf("pos %d user_turun %d update_mode %d assistent_idx %d\n",
                 //         pos, user_turn, update_mode, assistent_idx);
                 // TODO: multi-thred to update_memory_cache when user are writting things
@@ -1169,7 +1185,7 @@ void chat(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler,
             safe_printf(piece); // same as printf("%s", piece), but skips "unsafe" bytes
             fflush(stdout);
         }
-        if (next == eof) { printf("\n"); }
+        if (next == eof) { printf("\n\n"); }
     }
     printf("\n");
     // free(system_prompt);
