@@ -30,7 +30,7 @@ Download the required model and tokenizer files using the following commands:
 
 ```
 oss cp s3://lsy/llama2rnn.c/llama2Rnn_toy20M_q80.bin .
-oss cp s3://lsy/llama2rnn.c/tokenizer.bin .
+oss cp s3://lsy/llama2rnn.c/llama2_tokenizer.bin .
 ```
 
 ### 3. Running the Model
@@ -45,11 +45,10 @@ To run the Llama2RNN model indefinitely, use the following command:
 
 - Investigate and merge run.cu (CUDA)
 - Add more models, such as 100M, 1B, and 7B
+- (LoRA) Finetuning and export of Llama 2 models
 - Support Chinese language
 - Add training code
 
 ## License
 
 MIT
-
-(by chat-gpt)
