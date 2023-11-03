@@ -8,7 +8,8 @@ This is a Recurrent Neural Network (RNN) model designed to run indefinitely (lif
 - **rnn:** The attention sequence length for each token is fixed, so the computation and memory overhead will not increase. In theory, it supports infinite-length sequences and can read from and save memories to disk.
 - **.c:** Can run on local devices, even on mobile platforms
 
-example
+Example
+
 ```md
 # mode = llama2Rnn_toy20M_q80.bin, train_seq_len = 256, attention_seq_len = 32
 

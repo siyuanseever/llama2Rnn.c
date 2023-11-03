@@ -1,5 +1,7 @@
 # Llama2RNN.c：一个用C语言实现的终身 RNN 模型
 
+[English](README.md) | [中文](README_zh.md)
+
 这是一个使用 Llama2 权重设计的循环神经网络（RNN）模型，旨在无限期运行（终身）。
 
 - **llama2**: 可以使用 llama2 各种版本模型的权重
