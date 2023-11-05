@@ -1,102 +1,101 @@
-# Llama2RNN.c: A Lifelong RNN Model in C
+# Llama2RNN.c：一个用C语言实现的终身 RNN 模型
 
-[English](README.md) | [中文](README_zh.md)
+[![zh](https://img.shields.io/badge/zh-简体中文-red.svg)](README.md)
+[![en](https://img.shields.io/badge/en-English-green.svg)](README.en.md)
 
-This is a Recurrent Neural Network (RNN) model designed to run indefinitely (lifelong) using the Llama2 weights.
+这是一个使用 Llama2 权重设计的循环神经网络（RNN）模型，旨在无限期运行（终身）。
 
-- **llama2:** Various versions of the llama2 model weights can be used
-- **rnn:** The attention sequence length for each token is fixed, so the computation and memory overhead will not increase. In theory, it supports infinite-length sequences and can read from and save memories to disk.
-- **.c:** Can run on local devices, even on mobile platforms
+- **llama2**: 可以使用 llama2 各种版本模型的权重
+- **rnn**: 每个token的 attention sequence 长度固定，计算和内存开销不会增加，理论上支持无限长序列，可以从硬盘读取和保存记忆
+- **.c**: 可以在本地设备上运行，甚至是移动平台
 
-Example
-
+示例
 ```md
 # mode = llama2Rnn_toy20M_q80.bin, train_seq_len = 256, attention_seq_len = 32
 
-Enter system prompt (optional):
-(2023-11-03 11:28:49)  User: Can you provide examples of successful adoption and utilization of wearable technology in the fashion industry?
-Assistant:  Yes, here are some examples of successful adoption and utilization of wearable technology in the fashion industry:
+输入系统提示（可选）：
+(2023-11-03 11:28:49)  用户：您能提供一些时尚界成功采用和利用可穿戴技术的例子吗？
+助手：是的，以下是一些时尚行业成功采用和利用可穿戴技术的例子：
 
-1. Eye Monitoring: Eye monitoring technology enables healthcare professionals to track data on patients' movements, symptoms, and treatment options. This data can be used to adjust the temperature, duration, and other factors that affect patient satisfaction, and predict which treatment works best for each individual patient.
+1. 眼动监测：眼动监测技术使医疗专业人士能够追踪患者的活动、症状和治疗方案等数据。通过分析这些数据，可以调整影响患者满意度的温度、持续时间等因素，并预测哪种治疗对每个患者最有效。
 
-2. Medical Loss: VR is a popular practice that enables physicians to make real-time changes in their patients’ health data. Patients can apply their VR training, allowing them to monitor their progress and adjust their care accordingly.
+2. 医疗损失：虚拟现实（VR）是一种流行的实践方式，可以帮助医生实时更改患者的健康数据。患者可以应用他们在VR培训中学到的知识，以此来监控自己的进展并相应地调整护理方式。
 
-3. Health Information Management: Patients are more likely to use wearable devices, such as smartwatches, for medical diagnosis and monitoring. They can see their blood sugar levels, heatstroke, and other health conditions. This helps them to manage their symptoms and reduce the likelihood of their health conditions.
+3. 健康信息管理：患者更有可能使用可穿戴设备（如智能手表）进行医学诊断和监测。他们可以查看自己的血糖水平、中暑等健康状况。这有助于他们控制症状并降低健康问题的发生概率。
 
-4. Surveillance: Patients can use wearables to monitor their health by monitoring their movements, activities, and other factors that contribute to their health. They can monitor their heart rate, breathing patterns, and other sensory systems to make more informed decisions about the location and timing of their menstrual cycle.
+4. 监视：患者可以使用可穿戴设备通过监测他们的活动、行为和其他影响健康的因素来监测自己的健康状况。他们可以监测心率、呼吸模式等感觉系统，以便更明智地决定经期的时间和地点。
 
-5. Safety and Health: Patients are best fluent in English as it provides them with real-time access to healthcare in a more accessible and convenient way. They can avoid getting stranded on their own or leave food, and can also save lives by smiling at home or visiting places in the house.
+5. 安全与健康：患者最好能流利使用英语，因为这样可以让他们实时获取医疗信息，使医疗服务更加便捷。他们可以避免独自一人被困在某个地方，也可以通过在家微笑或参观家中的其他地方来挽救生命。
 
-Overall, the use of technology in the fashion industry has transformed patient care. By providing advanced training and support to healthcare professionals, researchers have been able to provide a more accurate, efficient, and intuitive approach to patient care.
+总之，技术在时尚行业的应用已经改变了患者护理方式。通过为医疗专业人士提供先进的培训和支持，研究人员已经能够提供更精确、高效和直观的患者护理方法。
 
-(2023-11-03 11:28:51)  User:
-
+(2023-11-03 11:28:51)  用户：
 ```
 
-It can be seen that although the training length of the model is only 256 and the attention length is only 32, it can still generate longer coherent responses.
+能够看到虽然模型的训练长度只有256，而注意力长度只有32，却能生成更长的连贯回复。
 
-## How to use
+## 如何使用
 
-### 1. Compilation
+### 1. 编译
 
-To compile the `llama2Rnn.c` code, you have two options:
+要编译`llama2Rnn.c`代码，有以下两种选择：
 
-#### 1.1 Fast Compilation without OpenMP Support
+#### 1.1 不支持 OpenMP 的快速编译
 
-To quickly compile without OpenMP support, use the following command:
+要快速编译，不使用 OpenMP 支持，请使用以下命令：
 
 ```bash
 make runfast
 ```
 
-#### 1.2 Compilation with OpenMP Support
+#### 1.2 支持 OpenMP 的编译
 
-To compile with OpenMP support, use the following command:
+要编译并支持 OpenMP，请使用以下命令：
 
 ```bash
 make runomp
 ```
 
-### 2. Downloading the Model and Tokenizer
+### 2. 下载模型和分词器
 
-Download the required model and tokenizer files using the following commands:
+使用以下命令下载所需的模型和分词器文件：
 
 ```bash
-# All available models can be found at s3://lsy/llama2rnn.c/, and subsequent model updates will also be here
+# 所有可用的模型都在 s3://lsy/llama2rnn.c/，后续更新模型也会在这里
 
 oss cp s3://lsy/llama2rnn.c/llama2Rnn_toy20M_q80.bin .
 oss cp s3://lsy/llama2rnn.c/llama2_tokenizer.bin .
 ```
 
-### 3. Running the Model
+### 3. 运行模型
 
-To run the Llama2RNN model indefinitely, use the following command:
+要无限期运行 Llama2RNN 模型，请使用以下命令：
 
 ```bash
 ./runqm llama2Rnn_toy20M_q80.bin -z llama2_tokenizer.bin -m chat
 ```
 
-## Change Log
+## 更新记录
 
 - 2023.11.03
-    - Quantize code
-    - Release 20M chat model
+    - 量化代码
+    - release 20M chat model
 
-## Future Improvements
+## 未来改进
 
-- Investigate and merge `run.cu` (CUDA)
-- Add more models, such as 100M, 1B, and 7B
-- (LoRA) Llama2 model fine-tuning
-- Support for Chinese language
-- Add training code
-- Save memory to disk feature
-- Support .txt document input
-- Perceive physical time
+- 调查并合并 `run.cu`（CUDA）
+- 添加更多模型，如 100M、1B 和 7B
+- （LoRA）Llama2 模型微调
+- 支持中文语言
+- 添加训练代码
+- 将内存保存到磁盘功能
+- 支持 .txt 文档输入
+- 感知物理时间
 
-## Known Bugs
+## 遗留bug
 
-- Pressing Enter in user input may cause invalid memory address access
+- user input 回车可能导致内存访问无效地址
 
-## License
+## 许可证
 
 MIT
