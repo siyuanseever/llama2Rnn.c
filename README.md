@@ -10,7 +10,7 @@
 - **.c**: 可以在本地设备上运行，甚至是移动平台
 
 示例
-```md
+```bash
 # mode = llama2Rnn_toy20M_q80.bin, train_seq_len = 256, attention_seq_len = 32
 
 输入系统提示（可选）：
@@ -77,6 +77,8 @@ oss cp s3://lsy/llama2rnn.c/llama2_tokenizer.bin .
 
 ## 更新记录
 
+- 2023.11.06
+    - update 20M(22M) chat model: memory length 从32增加到128（val loss 2.1 -> 1.6）
 - 2023.11.03
     - 量化代码
     - release 20M chat model
@@ -95,6 +97,10 @@ oss cp s3://lsy/llama2rnn.c/llama2_tokenizer.bin .
 ## 遗留bug
 
 - user input 回车可能导致内存访问无效地址
+- user input 回车可能导致跳过后面的user输入？
+- molloc prompt 时可能有溢出问题？
+- chat encode 有内存访问问题？
+
 
 ## 许可证
 
