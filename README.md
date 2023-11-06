@@ -72,13 +72,14 @@ oss cp s3://lsy/llama2rnn.c/llama2_tokenizer.bin .
 要无限期运行 Llama2RNN 模型，请使用以下命令：
 
 ```bash
-./runqm llama2Rnn_toy20M_q80.bin -z llama2_tokenizer.bin -m chat
+./runqm llama2Rnn_toy20M_q80.bin -z llama2_tokenizer.bin -o mem20M.bin -m chat
 ```
 
 ## 更新记录
 
 - 2023.11.06
     - update 20M(22M) chat model: memory length 从32增加到128（val loss 2.1 -> 1.6）
+    - 增加记忆管理功能
 - 2023.11.03
     - 量化代码
     - release 20M chat model

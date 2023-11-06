@@ -448,15 +448,63 @@ void update_memory_cache(Transformer* transformer, float* memory, int mem_pos, i
     memcpy(value_cache_row, s->v, kv_dim * sizeof(*value_cache_row));
 }
 
-void init_memory_cache(Transformer* t) {
-    int mem_len = t->config.mem_len;
-    int n_layers = t->config.n_layers;
-    float* ori_mem = t->weights.ori_mem;
-    for (int mem_pos = 0; mem_pos < mem_len; mem_pos++) {
-        for(int l = 0; l < n_layers; l++) {
-            update_memory_cache(t, ori_mem, mem_pos, l);
+typedef struct {
+    char* memory_path;
+    int update_mode;
+} Memoryer;
+
+void save_memory_to_disk(Memoryer* m, Transformer* t) {
+    Config* p = &t->config;
+    RunState* s = &t->state;
+
+    FILE *file = fopen(m->memory_path, "wb");
+    if (!file) { fprintf(stderr, "couldn't open %s\n", m->memory_path); exit(EXIT_FAILURE); }
+    fwrite(s->mem_cache, sizeof(float), p->n_layers * p->mem_len * p->dim, file);
+    fclose(file);
+}
+
+int read_memory_from_disk(Memoryer* m, Transformer* t) {
+    Config* p = &t->config;
+    RunState* s = &t->state;
+    size_t mem_elements = p->n_layers * p->mem_len * p->dim;
+
+    FILE *file = fopen(m->memory_path, "rb");
+    if (!file) { fprintf(stderr, "Initialize memory at %s.\n", m->memory_path); return 0; }
+    fprintf(stdout, "Load memory from %s\n", m->memory_path);
+    if (fread(s->mem_cache, sizeof(float), mem_elements, file) != mem_elements) {
+        fprintf(stderr, "failed read. Use inital memory\n"); return 0; 
+    };
+
+    fclose(file);
+    return 1;
+}
+
+void init_memory_cache(Memoryer* m, Transformer* t) {
+    Config* p = &t->config;
+    RunState* s = &t->state;
+    TransformerWeights* w = &t->weights;
+
+    // load memory from disk
+    if (read_memory_from_disk(m, t) != 1) {
+        // load memory from ori_mem 
+        memcpy(s->mem_cache, w->ori_mem,  p->n_layers * p->mem_len * p->dim * sizeof(float));
+    }
+
+    for (int mem_pos = 0; mem_pos < p->mem_len; mem_pos++) {
+        for(int l = 0; l < p->n_layers; l++) {
+            update_memory_cache(t, s->mem_cache, mem_pos, l);
         }
     }
+
+    save_memory_to_disk(m, t);
+}
+
+void build_memoryer(Memoryer* m, char* memory_path, Transformer* t, int update_mode) {
+    // init m
+    m->memory_path = memory_path;
+    m->update_mode = update_mode;
+    // init memory cache
+    init_memory_cache(m, t);
 }
 
 float* forward(Transformer* transformer, int token, int pos) {
@@ -982,7 +1030,7 @@ void time_in_str(char* buffer, int size) {
 // ----------------------------------------------------------------------------
 // generation loop
 
-void generate(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler, char *prompt, int steps, int update_mode) {
+void generate(Transformer *transformer, Memoryer * memoryer, Tokenizer *tokenizer, Sampler *sampler, char *prompt, int steps) {
     Config* p = &transformer->config;
     char *empty_prompt = "";
     if (prompt == NULL) { prompt = empty_prompt; }
@@ -1006,7 +1054,7 @@ void generate(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler, 
         chunk_pos = pos % p->mem_len;
             
         // update memory kv cache; 
-         if (update_mode == 0 && pos > 0 && chunk_pos == 0) {
+         if (memoryer->update_mode == 0 && pos > 0 && chunk_pos == 0) {
              for (int mem_pos = 0; mem_pos < p->mem_len; mem_pos++) {
                  for(int l = 0; l < p->n_layers; l++) {
                      update_memory_cache(transformer, transformer->state.mem_cache, mem_pos, l);
@@ -1016,7 +1064,7 @@ void generate(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler, 
 
         // forward the transformer to get logits for the next token
         float* logits = forward(transformer, token, chunk_pos);
-        if (update_mode == 1) { // This mode is not thoroughly tested, as during training, memory updates occur every chunk
+        if (memoryer->update_mode == 1) { // This mode is not thoroughly tested, as during training, memory updates occur every chunk
             for(int l = 0; l < p->n_layers; l++) {
                 update_memory_cache(transformer, transformer->state.mem_cache, chunk_pos, l);
             }
@@ -1054,6 +1102,8 @@ void generate(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler, 
         fprintf(stderr, "achieved tok/s: %f\n", (pos-1) / (double)(end-start)*1000);
     }
 
+    save_memory_to_disk(memoryer, transformer);
+
     free(prompt_tokens);
 }
 
@@ -1074,8 +1124,8 @@ void read_stdin(const char* guide, char* buffer, size_t bufsize) {
 // python reference and that seemed ok, but this was not thoroughly tested and
 // is not safely implemented, it's more a proof of concept atm.
 
-void chat(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler,
-          char *cli_user_prompt, char *cli_system_prompt, int steps, int update_mode) {
+void chat(Transformer *transformer, Memoryer *memoryer, Tokenizer *tokenizer, Sampler *sampler,
+          char *cli_user_prompt, char *cli_system_prompt, int steps) {
 
     Config* p = &transformer->config;
     // buffers for reading the system prompt and user prompt from stdin
@@ -1122,6 +1172,8 @@ void chat(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler,
                 // user prompt for position 0 was passed in, use it
                 strcpy(user_prompt, cli_user_prompt);
             } else {
+                // save memory every round chat
+                save_memory_to_disk(memoryer, transformer);
                 // otherwise get user prompt from stdin
                 time_in_str(time_str, 80);
                 char io_template[] = "(%s)  User: ";
@@ -1161,7 +1213,7 @@ void chat(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler,
         if (token == eof && assistent_idx > 1) { user_turn = 1; } // because llama only can generate BOS (=1)
 
         // update memory kv cache; 
-        if (update_mode == 0 && pos > 0 && chunk_pos == 0) {
+        if (memoryer->update_mode == 0 && pos > 0 && chunk_pos == 0) {
             for (int mem_pos = 0; mem_pos < p->mem_len; mem_pos++) {
                 for(int l = 0; l < p->n_layers; l++) {
                     update_memory_cache(transformer, transformer->state.mem_cache, mem_pos, l);
@@ -1171,7 +1223,7 @@ void chat(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler,
 
         // forward the transformer to get logits for the next token
         float* logits = forward(transformer, token, chunk_pos);
-        if (update_mode == 1) { // This mode is not thoroughly tested, as during training, memory updates occur every chunk
+        if (memoryer->update_mode == 1) { // This mode is not thoroughly tested, as during training, memory updates occur every chunk
             for(int l = 0; l < p->n_layers; l++) {
                 update_memory_cache(transformer, transformer->state.mem_cache, chunk_pos, l);
             }
@@ -1210,6 +1262,7 @@ void error_usage() {
     fprintf(stderr, "  -n <int>    number of steps to run for, default 256. 0 = max_seq_len\n");
     fprintf(stderr, "  -i <string> input prompt\n");
     fprintf(stderr, "  -z <string> optional path to custom tokenizer\n");
+    fprintf(stderr, "  -z <string> optional path to memory\n");
     fprintf(stderr, "  -m <string> mode: generate|chat, default: generate\n");
     fprintf(stderr, "  -y <string> (optional) system prompt in chat mode\n");
     exit(EXIT_FAILURE);
@@ -1220,6 +1273,7 @@ int main(int argc, char *argv[]) {
     // default parameters
     char *checkpoint_path = NULL;  // e.g. out/model.bin
     char *tokenizer_path = "tokenizer.bin";
+    char *memory_path = "memory.bin";
     float temperature = 1.0f;   // 0.0 = greedy deterministic. 1.0 = original. don't set higher
     float topp = 0.9f;          // top-p in nucleus sampling. 1.0 = off. 0.9 works well, but slower
     int steps = 256;            // number of steps to run for
@@ -1244,6 +1298,7 @@ int main(int argc, char *argv[]) {
         else if (argv[i][1] == 'u') { update_mode = atoi(argv[i + 1]); }
         else if (argv[i][1] == 'i') { prompt = argv[i + 1]; }
         else if (argv[i][1] == 'z') { tokenizer_path = argv[i + 1]; }
+        else if (argv[i][1] == 'o') { memory_path = argv[i + 1]; }
         else if (argv[i][1] == 'm') { mode = argv[i + 1]; }
         else if (argv[i][1] == 'y') { system_prompt = argv[i + 1]; }
         else { error_usage(); }
@@ -1259,7 +1314,10 @@ int main(int argc, char *argv[]) {
     Transformer transformer;
     build_transformer(&transformer, checkpoint_path);
     if (steps == 0) steps = transformer.config.seq_len; // ovrerride to ~max length
-    init_memory_cache(&transformer); //  initialize memory cache
+
+    // build the memoryer via the memory .bin file 
+    Memoryer memoryer;
+    build_memoryer(&memoryer, memory_path, &transformer, update_mode);
 
     // build the Tokenizer via the tokenizer .bin file
     Tokenizer tokenizer;
@@ -1271,9 +1329,9 @@ int main(int argc, char *argv[]) {
 
     // run!
     if (strcmp(mode, "generate") == 0) {
-        generate(&transformer, &tokenizer, &sampler, prompt, steps, update_mode);
+        generate(&transformer, &memoryer, &tokenizer, &sampler, prompt, steps);
     } else if (strcmp(mode, "chat") == 0) {
-        chat(&transformer, &tokenizer, &sampler, prompt, system_prompt, steps, update_mode);
+        chat(&transformer, &memoryer, &tokenizer, &sampler, prompt, system_prompt, steps);
     } else {
         fprintf(stderr, "unknown mode: %s\n", mode);
         error_usage();
