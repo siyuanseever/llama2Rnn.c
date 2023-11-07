@@ -9,6 +9,8 @@
 - **rnn**: 每个token的 attention sequence 长度固定，计算和内存开销不会增加，理论上支持无限长序列，可以从硬盘读取和保存记忆
 - **.c**: 可以在本地设备上运行，甚至是移动平台
 
+当前仓库是从[llama2.c](https://github.com/karpathy/llama2.c)派生的。
+
 示例
 ```bash
 # mode = llama2Rnn_toy20M_q80.bin, train_seq_len = 256, attention_seq_len = 32
@@ -58,10 +60,10 @@ make runomp
 
 ### 2. 下载模型和分词器
 
-使用以下命令下载所需的模型和分词器文件：
+使用以下命令下载所需的[分词器](https://drive.google.com/file/d/1KJei_OZHFXsc8vgqz7ZGu7V8Nw-TSwFm/view?usp=drive_link)和[模型](https://drive.google.com/file/d/10UOsLSmLEWMfGitKTk8J-tbrL5J-4P6l/view?usp=drive_link)文件：
 
 ```bash
-# 所有可用的模型都在 s3://lsy/llama2rnn.c/，后续更新模型也会在这里
+# (internal aws)所有可用的模型都在 s3://lsy/llama2rnn.c/，后续更新模型也会在这里
 
 oss cp s3://lsy/llama2rnn.c/llama2Rnn_toy20M_q80.bin .
 oss cp s3://lsy/llama2rnn.c/llama2_tokenizer.bin .
