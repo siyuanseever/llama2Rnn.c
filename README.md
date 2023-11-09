@@ -60,7 +60,7 @@ make runomp
 
 ### 2. 下载模型和分词器
 
-使用以下命令下载所需的[分词器](https://drive.google.com/file/d/1KJei_OZHFXsc8vgqz7ZGu7V8Nw-TSwFm/view?usp=drive_link)和[模型](https://drive.google.com/file/d/10UOsLSmLEWMfGitKTk8J-tbrL5J-4P6l/view?usp=drive_link)文件：
+下载所需的[分词器](https://drive.google.com/file/d/1KJei_OZHFXsc8vgqz7ZGu7V8Nw-TSwFm/view?usp=drive_link)和[模型](https://drive.google.com/file/d/10UOsLSmLEWMfGitKTk8J-tbrL5J-4P6l/view?usp=drive_link)文件。可选以及后续更新模型都在[这里](https://drive.google.com/drive/folders/1Px5IzuUY-H2I-bd0PRsvS0rCg9Vm7iC9?usp=sharing)
 
 ```bash
 # (internal aws)所有可用的模型都在 s3://lsy/llama2rnn.c/，后续更新模型也会在这里
