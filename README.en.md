@@ -9,6 +9,8 @@ This is a Recurrent Neural Network (RNN) model designed to run indefinitely (lif
 - **rnn:** The attention sequence length for each token is fixed, so the computation and memory overhead will not increase. In theory, it supports infinite-length sequences and can read from and save memories to disk.
 - **.c:** Can run on local devices, even on mobile platforms
 
+Current repo forked from [llama2.c](https://github.com/karpathy/llama2.c).
+
 Example
 
 ```md
@@ -60,10 +62,10 @@ make runomp
 
 ### 2. Downloading the Model and Tokenizer
 
-Download the required model and tokenizer files using the following commands:
+Download the required [tokenizer](https://drive.google.com/file/d/1KJei_OZHFXsc8vgqz7ZGu7V8Nw-TSwFm/view?usp=drive_link) and [model](https://drive.google.com/file/d/10UOsLSmLEWMfGitKTk8J-tbrL5J-4P6l/view?usp=drive_link) files. All avaiable models can be downloaded at [here](https://drive.google.com/drive/folders/1Px5IzuUY-H2I-bd0PRsvS0rCg9Vm7iC9?usp=sharing)
 
 ```bash
-# All available models can be found at s3://lsy/llama2rnn.c/, and subsequent model updates will also be here
+# (internal aws)All available models can be found at s3://lsy/llama2rnn.c/, and subsequent model updates will also be here
 
 oss cp s3://lsy/llama2rnn.c/llama2Rnn_toy20M_q80.bin .
 oss cp s3://lsy/llama2rnn.c/llama2_tokenizer.bin .
