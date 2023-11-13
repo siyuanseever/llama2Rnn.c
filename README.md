@@ -76,7 +76,8 @@ oss cp s3://lsy/llama2rnn.c/llama2_tokenizer.bin .
 ```
 
 ## 更新记录
-
+- 2023.11.13
+    - 优化memory save，包括kv cache和token position
 - 2023.11.06
     - update 20M(22M) chat model: memory length 从32增加到128（val loss 2.1 -> 1.6）
     - 增加记忆管理功能
@@ -91,7 +92,6 @@ oss cp s3://lsy/llama2rnn.c/llama2_tokenizer.bin .
 - （LoRA）Llama2 模型微调
 - 支持中文语言
 - 添加训练代码
-- 将内存保存到磁盘功能
 - 支持 .txt 文档输入
 - 感知物理时间
 

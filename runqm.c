@@ -451,15 +451,19 @@ void update_memory_cache(Transformer* transformer, float* memory, int mem_pos, i
 typedef struct {
     char* memory_path;
     int update_mode;
+    int pos;
 } Memoryer;
 
-void save_memory_to_disk(Memoryer* m, Transformer* t) {
+void save_memory_to_disk(Memoryer* m, Transformer* t, int pos) {
     Config* p = &t->config;
     RunState* s = &t->state;
 
     FILE *file = fopen(m->memory_path, "wb");
     if (!file) { fprintf(stderr, "couldn't open %s\n", m->memory_path); exit(EXIT_FAILURE); }
     fwrite(s->mem_cache, sizeof(float), p->n_layers * p->mem_len * p->dim, file);
+    fwrite(s->key_cache, sizeof(float), p->n_layers * p->seq_len * p->dim, file);
+    fwrite(s->value_cache, sizeof(float), p->n_layers * p->seq_len * p->dim, file);
+    fwrite(&pos, sizeof(int), 1, file);
     fclose(file);
 }
 
@@ -467,11 +471,21 @@ int read_memory_from_disk(Memoryer* m, Transformer* t) {
     Config* p = &t->config;
     RunState* s = &t->state;
     size_t mem_elements = p->n_layers * p->mem_len * p->dim;
+    size_t kv_elements = p->n_layers * p->seq_len * p->dim;
 
     FILE *file = fopen(m->memory_path, "rb");
     if (!file) { fprintf(stderr, "Initialize memory at %s.\n", m->memory_path); return 0; }
     fprintf(stdout, "Load memory from %s\n", m->memory_path);
     if (fread(s->mem_cache, sizeof(float), mem_elements, file) != mem_elements) {
+        fprintf(stderr, "failed memory read. Use inital memory\n"); return 0; 
+    };
+    if (fread(s->key_cache, sizeof(float), kv_elements, file) != kv_elements) {
+        fprintf(stderr, "failed read. Use inital memory\n"); return 0; 
+    };
+    if (fread(s->value_cache, sizeof(float), kv_elements, file) != kv_elements) {
+        fprintf(stderr, "failed read. Use inital memory\n"); return 0; 
+    };
+    if (fread(&m->pos, sizeof(int), 1, file) != 1) {
         fprintf(stderr, "failed read. Use inital memory\n"); return 0; 
     };
 
@@ -488,21 +502,21 @@ void init_memory_cache(Memoryer* m, Transformer* t) {
     if (read_memory_from_disk(m, t) != 1) {
         // load memory from ori_mem 
         memcpy(s->mem_cache, w->ori_mem,  p->n_layers * p->mem_len * p->dim * sizeof(float));
-    }
-
-    for (int mem_pos = 0; mem_pos < p->mem_len; mem_pos++) {
-        for(int l = 0; l < p->n_layers; l++) {
-            update_memory_cache(t, s->mem_cache, mem_pos, l);
+        for (int mem_pos = 0; mem_pos < p->mem_len; mem_pos++) {
+            for(int l = 0; l < p->n_layers; l++) {
+                update_memory_cache(t, s->mem_cache, mem_pos, l);
+            }
         }
     }
 
-    save_memory_to_disk(m, t);
+    save_memory_to_disk(m, t, m->pos);
 }
 
 void build_memoryer(Memoryer* m, char* memory_path, Transformer* t, int update_mode) {
     // init m
     m->memory_path = memory_path;
     m->update_mode = update_mode;
+    m->pos = 0;
     // init memory cache
     init_memory_cache(m, t);
 }
@@ -1048,25 +1062,25 @@ void generate(Transformer *transformer, Memoryer * memoryer, Tokenizer *tokenize
     long start = 0;  // used to time our code, only initialized after first iteration
     int next;        // will store the next token in the sequence
     int token = prompt_tokens[0]; // kick off with the first token in the prompt
-    int pos = 0;     // position in the sequence
+    int pos = memoryer->pos;     // position in the sequence
     int chunk_pos = 0;  // max chunk_pos equal mem_len
     while (pos < steps) {
-        chunk_pos = pos % p->mem_len;
-            
-        // update memory kv cache; 
-         if (memoryer->update_mode == 0 && pos > 0 && chunk_pos == 0) {
-             for (int mem_pos = 0; mem_pos < p->mem_len; mem_pos++) {
-                 for(int l = 0; l < p->n_layers; l++) {
-                     update_memory_cache(transformer, transformer->state.mem_cache, mem_pos, l);
-                 }
-             }
-         }
 
+        chunk_pos = pos % p->mem_len;
         // forward the transformer to get logits for the next token
         float* logits = forward(transformer, token, chunk_pos);
+
+        // update memory kv cache; 
         if (memoryer->update_mode == 1) { // This mode is not thoroughly tested, as during training, memory updates occur every chunk
             for(int l = 0; l < p->n_layers; l++) {
                 update_memory_cache(transformer, transformer->state.mem_cache, chunk_pos, l);
+            }
+        }
+        else if (memoryer->update_mode == 0 && chunk_pos == p->mem_len - 1) {
+            for (int mem_pos = 0; mem_pos < p->mem_len; mem_pos++) {
+                for(int l = 0; l < p->n_layers; l++) {
+                    update_memory_cache(transformer, transformer->state.mem_cache, mem_pos, l);
+                }
             }
         }
 
@@ -1102,7 +1116,7 @@ void generate(Transformer *transformer, Memoryer * memoryer, Tokenizer *tokenize
         fprintf(stderr, "achieved tok/s: %f\n", (pos-1) / (double)(end-start)*1000);
     }
 
-    save_memory_to_disk(memoryer, transformer);
+    save_memory_to_disk(memoryer, transformer, chunk_pos+1);
 
     free(prompt_tokens);
 }
@@ -1149,7 +1163,7 @@ void chat(Transformer *transformer, Memoryer *memoryer, Tokenizer *tokenizer, Sa
     int next;        // will store the next token in the sequence
     int token;       // stores the current token to feed into the transformer
     int prev_token;
-    int pos = 0;     // position in the sequence
+    int pos = memoryer->pos;     // position in the sequence
     int chunk_pos = 0;  // max chunk_pos equal mem_len
     while (chunk_pos < steps) {
         chunk_pos = pos % p->mem_len;
@@ -1173,7 +1187,7 @@ void chat(Transformer *transformer, Memoryer *memoryer, Tokenizer *tokenizer, Sa
                 strcpy(user_prompt, cli_user_prompt);
             } else {
                 // save memory every round chat
-                save_memory_to_disk(memoryer, transformer);
+                save_memory_to_disk(memoryer, transformer, chunk_pos);
                 // otherwise get user prompt from stdin
                 time_in_str(time_str, 80);
                 char io_template[] = "(%s)  User: ";
@@ -1212,20 +1226,20 @@ void chat(Transformer *transformer, Memoryer *memoryer, Tokenizer *tokenizer, Sa
         // EOS (=2) token ends the Assistant turn
         if (token == eof && assistent_idx > 1) { user_turn = 1; } // because llama only can generate BOS (=1)
 
+        // forward the transformer to get logits for the next token
+        float* logits = forward(transformer, token, chunk_pos);
+
         // update memory kv cache; 
-        if (memoryer->update_mode == 0 && pos > 0 && chunk_pos == 0) {
+        if (memoryer->update_mode == 1) { // This mode is not thoroughly tested, as during training, memory updates occur every chunk
+            for(int l = 0; l < p->n_layers; l++) {
+                update_memory_cache(transformer, transformer->state.mem_cache, chunk_pos, l);
+            }
+        }
+        else if (memoryer->update_mode == 0 && chunk_pos == p->mem_len - 1) {
             for (int mem_pos = 0; mem_pos < p->mem_len; mem_pos++) {
                 for(int l = 0; l < p->n_layers; l++) {
                     update_memory_cache(transformer, transformer->state.mem_cache, mem_pos, l);
                 }
-            }
-        }
-
-        // forward the transformer to get logits for the next token
-        float* logits = forward(transformer, token, chunk_pos);
-        if (memoryer->update_mode == 1) { // This mode is not thoroughly tested, as during training, memory updates occur every chunk
-            for(int l = 0; l < p->n_layers; l++) {
-                update_memory_cache(transformer, transformer->state.mem_cache, chunk_pos, l);
             }
         }
         next = sample(sampler, logits);
@@ -1281,7 +1295,7 @@ int main(int argc, char *argv[]) {
     char *prompt = NULL;        // prompt string
     unsigned long long rng_seed = 0; // seed rng with time by default
     char *mode = "generate";    // generate|chat
-    char *system_prompt = NULL; // the (optional) system prompt to use in chat mode
+    char *system_prompt = ""; // the (optional) system prompt to use in chat mode
 
     // poor man's C argparse so we can override the defaults above from the command line
     if (argc >= 2) { checkpoint_path = argv[1]; } else { error_usage(); }
