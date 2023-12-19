@@ -458,6 +458,10 @@ void save_memory_to_disk(Memoryer* m, Transformer* t, int pos) {
     Config* p = &t->config;
     RunState* s = &t->state;
 
+    if (m->memory_path == NULL) {
+        return;
+    }
+
     FILE *file = fopen(m->memory_path, "wb");
     if (!file) { fprintf(stderr, "couldn't open %s\n", m->memory_path); exit(EXIT_FAILURE); }
     fwrite(s->mem_cache, sizeof(float), p->n_layers * p->mem_len * p->dim, file);
@@ -474,7 +478,7 @@ int read_memory_from_disk(Memoryer* m, Transformer* t) {
     size_t kv_elements = p->n_layers * p->seq_len * p->dim;
 
     FILE *file = fopen(m->memory_path, "rb");
-    if (!file) { fprintf(stderr, "Initialize memory at %s.\n", m->memory_path); return 0; }
+    if (!file) { fprintf(stderr, "Memory at %s is not exists.\n", m->memory_path); return 0; }
     fprintf(stdout, "Load memory from %s\n", m->memory_path);
     if (fread(s->mem_cache, sizeof(float), mem_elements, file) != mem_elements) {
         fprintf(stderr, "failed memory read. Use inital memory\n"); return 0; 
@@ -501,6 +505,7 @@ void init_memory_cache(Memoryer* m, Transformer* t) {
     // load memory from disk
     if (read_memory_from_disk(m, t) != 1) {
         // load memory from ori_mem 
+        fprintf(stdout, "Initialize memory.\n");
         memcpy(s->mem_cache, w->ori_mem,  p->n_layers * p->mem_len * p->dim * sizeof(float));
         for (int mem_pos = 0; mem_pos < p->mem_len; mem_pos++) {
             for(int l = 0; l < p->n_layers; l++) {
@@ -1287,7 +1292,7 @@ int main(int argc, char *argv[]) {
     // default parameters
     char *checkpoint_path = NULL;  // e.g. out/model.bin
     char *tokenizer_path = "tokenizer.bin";
-    char *memory_path = "memory.bin";
+    char *memory_path = NULL;
     float temperature = 1.0f;   // 0.0 = greedy deterministic. 1.0 = original. don't set higher
     float topp = 0.9f;          // top-p in nucleus sampling. 1.0 = off. 0.9 works well, but slower
     int steps = 256;            // number of steps to run for
