@@ -9,7 +9,21 @@
 - **rnn**: 每个token的 attention sequence 长度固定，计算和内存开销不会增加，理论上支持无限长序列，可以从硬盘读取和保存记忆
 - **.c**: 可以在本地设备上运行，甚至是移动平台
 
-当前仓库是从[llama2.c](https://github.com/karpathy/llama2.c)派生的。
+
+## Memory Attention：一种不需要考虑位置编码外推的RNN结构
+
+这里的主要思路是将 max_seq_len 拆分为长度更小为 mem_seq_len 的chunks，不同chunks之间通过RNN的形式连接中间状态。这样做的主要优势在于推理的时间和空间复杂度会更少，并支持无限长序列。
+
+### 效果对比
+
+| method\seq_len          | 256    | 512    | 1024   | 4096   | 32768  |
+| ----------------------- | ------ | ------ | ------ | ------ | ------ |
+| attention interpolation | 1.0583 | 1.3335 | 2.2598 | 4.1215 | 4.7887 |
+| mem_seq_len             | 1.0751 | 1.0611 | 1.0562 | 1.0321 | 0.9400 |
+
+以上模型是在训练长度为256的tinistory的文本生成任务上训练的，性能用的是token预测的交叉熵损失。以下长度外推方案都是在没有微调模型的结果。其中 memory attention 的attention seq len为32。从结果可以看出:
+* attention外推的各种改进方案只能缓解泛化问题，但仍然不会有序列长度收益存在。也就是说，随序列长度的增加性能会变好
+* 而memory attention可以实现外推长度的性能收益，而且明确有长度越长性能越好。
 
 示例
 ```bash
@@ -104,6 +118,8 @@ oss cp s3://lsy/llama2rnn.c/llama2_tokenizer.bin .
 - molloc prompt 时可能有溢出问题？
 - chat encode 有内存访问问题？
 
+## 参考
+当前仓库基于[llama2.c](https://github.com/karpathy/llama2.c)构建。
 
 ## 许可证
 
