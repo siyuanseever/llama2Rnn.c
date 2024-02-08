@@ -9,25 +9,12 @@
 - **rnn**: 每个token的 attention sequence 长度固定，计算和内存开销不会增加，理论上支持无限长序列，可以从硬盘读取和保存记忆
 - **.c**: 可以在本地设备上运行，甚至是移动平台
 
-## 更新
-
-- 202312.28
-    - 添加训练代码
-- 2023.12.19
-    - 增加中文模型
-- 2023.11.13
-    - 优化memory save，包括kv cache和token position
-- 2023.11.06
-    - update 20M(22M) chat model: memory length 从32增加到128（val loss 2.1 -> 1.6）
-    - 增加记忆管理功能
-- 2023.11.03
-    - 量化代码
-    - release 20M chat model
-
 
 ## Memory Attention：一种不需要考虑位置编码外推的RNN结构
 
 这里的主要思路是将 max_seq_len 拆分为长度更小为 mem_seq_len 的chunks，不同chunks之间通过RNN的形式连接中间状态。这样做的主要优势在于推理的时间和空间复杂度会更少，并支持无限长序列。
+
+![memoryAttention](./assets/memoryAttention.jpg)
 
 ### 效果对比
 
@@ -39,6 +26,8 @@
 以上模型是在训练长度为256的tinistory的文本生成任务上训练的，性能用的是token预测的交叉熵损失。以下长度外推方案都是在没有微调模型的结果。其中 memory attention 的attention seq len为32。从结果可以看出:
 * attention外推的各种改进方案只能缓解泛化问题，但仍然不会有序列长度收益存在。也就是说，随序列长度的增加性能会变好
 * 而memory attention可以实现外推长度的性能收益，而且明确有长度越长性能越好。
+
+more
 
 - 实现细节：[llama2Rnn.c：给llama2增加持久化记忆](https://zhuanlan.zhihu.com/p/681684286)
 - 对比实验：[Memory Attention: 增强Transformer的外推性能](https://zhuanlan.zhihu.com/p/669266950)
@@ -103,6 +92,21 @@ make runomp
 ## 如何训练
 
 见[siyuanseever/llama2Rnn: How to train Llama2Rnn in torch (github.com)](https://github.com/siyuanseever/llama2Rnn?tab=readme-ov-file#如何训练)
+
+## 更新
+
+- 202312.28
+  - 添加训练代码
+- 2023.12.19
+  - 增加中文模型
+- 2023.11.13
+  - 优化memory save，包括kv cache和token position
+- 2023.11.06
+  - update 20M(22M) chat model: memory length 从32增加到128（val loss 2.1 -> 1.6）
+  - 增加记忆管理功能
+- 2023.11.03
+  - 量化代码
+  - release 20M chat model
 
 ## 模型列表
 
