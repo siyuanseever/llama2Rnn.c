@@ -9,7 +9,20 @@ This is a Recurrent Neural Network (RNN) model designed to run indefinitely (lif
 - **rnn:** The attention sequence length for each token is fixed, so the computation and memory overhead will not increase. In theory, it supports infinite-length sequences and can read from and save memories to disk.
 - **.c:** Can run on local devices, even on mobile platforms
 
-Current repo forked from [llama2.c](https://github.com/karpathy/llama2.c).
+## News
+
+- December 28, 2023
+    - Added training code
+- December 19, 2023
+    - Added Chinese language model
+- November 13, 2023
+    - Optimized memory saving, including kv cache and token position
+- November 06, 2023
+    - Updated 20M(22M) chat model: memory length increased from 32 to 128 (validation loss improved from 2.1 to 1.6)
+    - Added memory management feature
+- November 03, 2023
+    - Quantization code
+    - Released 20M chat model
 
 Example
 
@@ -79,11 +92,24 @@ To run the Llama2RNN model indefinitely, use the following command:
 ./runqm llama2Rnn_toy20M_q80.bin -z llama2_tokenizer.bin -m chat
 ```
 
-## Change Log
+## How to Train
 
-- 2023.11.03
-    - Quantize code
-    - Release 20M chat model
+### Data Processing
+Refer to [README_llama2.c.md](./README_llama2.c.md) for data processing.
+```bash
+python3 tinystories.py download
+python3 tinystories.py train_vocab --vocab_size=4096
+python3 tinystories.py pretokenize --vocab_size=4096
+```
+### Training
+```bash
+python3 train.py config/train_tinystories_token4096_memorynorm.py
+```
+### Save
+```bash
+python3 tokenizer.py --tokenizer-model ./data/tok4096.model
+export.py out_path/model_q80.bin --version 2 --mem --checkpoint out_path/ckpt.pt
+```
 
 ## Future Improvements
 

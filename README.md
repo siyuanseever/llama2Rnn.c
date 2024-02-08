@@ -9,6 +9,21 @@
 - **rnn**: 每个token的 attention sequence 长度固定，计算和内存开销不会增加，理论上支持无限长序列，可以从硬盘读取和保存记忆
 - **.c**: 可以在本地设备上运行，甚至是移动平台
 
+## 更新
+
+- 202312.28
+    - 添加训练代码
+- 2023.12.19
+    - 增加中文模型
+- 2023.11.13
+    - 优化memory save，包括kv cache和token position
+- 2023.11.06
+    - update 20M(22M) chat model: memory length 从32增加到128（val loss 2.1 -> 1.6）
+    - 增加记忆管理功能
+- 2023.11.03
+    - 量化代码
+    - release 20M chat model
+
 
 ## Memory Attention：一种不需要考虑位置编码外推的RNN结构
 
@@ -24,6 +39,9 @@
 以上模型是在训练长度为256的tinistory的文本生成任务上训练的，性能用的是token预测的交叉熵损失。以下长度外推方案都是在没有微调模型的结果。其中 memory attention 的attention seq len为32。从结果可以看出:
 * attention外推的各种改进方案只能缓解泛化问题，但仍然不会有序列长度收益存在。也就是说，随序列长度的增加性能会变好
 * 而memory attention可以实现外推长度的性能收益，而且明确有长度越长性能越好。
+
+- 实现细节：[llama2Rnn.c：给llama2增加持久化记忆](https://zhuanlan.zhihu.com/p/681684286)
+- 对比实验：[Memory Attention: 增强Transformer的外推性能](https://zhuanlan.zhihu.com/p/669266950)
 
 示例
 ```bash
@@ -74,13 +92,6 @@ make runomp
 
 下载所需的[分词器](https://drive.google.com/file/d/1KJei_OZHFXsc8vgqz7ZGu7V8Nw-TSwFm/view?usp=drive_link)和[模型](https://drive.google.com/file/d/10UOsLSmLEWMfGitKTk8J-tbrL5J-4P6l/view?usp=drive_link)文件。可选以及后续更新模型都在[这里](https://drive.google.com/drive/folders/1Px5IzuUY-H2I-bd0PRsvS0rCg9Vm7iC9?usp=sharing)
 
-```bash
-# (internal aws)所有可用的模型都在 s3://lsy/llama2rnn.c/，后续更新模型也会在这里
-
-oss cp s3://lsy/llama2rnn.c/llama2Rnn_toy20M_q80.bin .
-oss cp s3://lsy/llama2rnn.c/llama2_tokenizer.bin .
-```
-
 ### 3. 运行模型
 
 要无限期运行 Llama2RNN 模型，请使用以下命令：
@@ -88,6 +99,10 @@ oss cp s3://lsy/llama2rnn.c/llama2_tokenizer.bin .
 ```bash
 ./runqm llama2Rnn_toy20M_q80.bin -z llama2_tokenizer.bin -o mem20M.bin -m chat
 ```
+
+## 如何训练
+
+见[siyuanseever/llama2Rnn: How to train Llama2Rnn in torch (github.com)](https://github.com/siyuanseever/llama2Rnn?tab=readme-ov-file#如何训练)
 
 ## 模型列表
 
@@ -97,19 +112,6 @@ oss cp s3://lsy/llama2rnn.c/llama2_tokenizer.bin .
 | 178M    | 英文模型，数据为wikipedia |
 | 178M_zh | 中文模型，数据包括moss    |
 
-## 更新记录
-
-- 2023.12.19
-    - 增加中文模型
-    
-- 2023.11.13
-    - 优化memory save，包括kv cache和token position
-- 2023.11.06
-    - update 20M(22M) chat model: memory length 从32增加到128（val loss 2.1 -> 1.6）
-    - 增加记忆管理功能
-- 2023.11.03
-    - 量化代码
-    - release 20M chat model
 
 ## 未来改进
 
