@@ -1,65 +1,68 @@
-# Llama2RNN.c: A Lifelong RNN Model in C
+# Llama2RNN.c: A Lifelong RNN Model Implemented in C
 
-[![zh](https://img.shields.io/badge/zh-简体中文-red.svg)](README.md)
+[![zh](https://img.shields.io/badge/zh-Simplified%20Chinese-red.svg)](README.md)
 [![en](https://img.shields.io/badge/en-English-green.svg)](README.en.md)
 
-This is a Recurrent Neural Network (RNN) model designed to run indefinitely (lifelong) using the Llama2 weights.
+This is a recurrent neural network (RNN) model redesigned using Llama2 weights, intended to run indefinitely (lifelong).
 
-- **llama2:** Various versions of the llama2 model weights can be used
-- **rnn:** The attention sequence length for each token is fixed, so the computation and memory overhead will not increase. In theory, it supports infinite-length sequences and can read from and save memories to disk.
-- **.c:** Can run on local devices, even on mobile platforms
+- **llama2**: Compatible with weights from various versions of the llama2 model
+- **rnn**: Fixed attention sequence length per token, computational and memory overhead does not increase, theoretically supports infinitely long sequences, can read from and save memories to disk
+- **.c**: Can run on local devices, including mobile platforms
 
-## News
+## Memory Attention: An RNN Structure That Extrapolates Without Considering Positional Encoding
 
-- December 28, 2023
-    - Added training code
-- December 19, 2023
-    - Added Chinese language model
-- November 13, 2023
-    - Optimized memory saving, including kv cache and token position
-- November 06, 2023
-    - Updated 20M(22M) chat model: memory length increased from 32 to 128 (validation loss improved from 2.1 to 1.6)
-    - Added memory management feature
-- November 03, 2023
-    - Quantization code
-    - Released 20M chat model
+The main idea here is to break max_seq_len into smaller chunks of mem_seq_len, with different chunks connected by the intermediate states in an RNN form. The main advantage of this approach is that it requires less time and space complexity for inference and supports infinitely long sequences.
+
+![memoryAttention](./assets/memoryAttention.jpg)
+
+### Performance Comparison
+
+| method\seq_len          | 256    | 512    | 1024   | 4096   | 32768  |
+| ----------------------- | ------ | ------ | ------ | ------ | ------ |
+| Attention Interpolation | 1.0583 | 1.3335 | 2.2598 | 4.1215 | 4.7887 |
+| Memory Attention        | 1.0751 | 1.0611 | 1.0562 | 1.0321 | 0.9400 |
+
+The models above were trained on a text generation task of tinistory with a training length of 256, and the performance is measured by the cross-entropy loss of token prediction. The extrapolation schemes below are results without fine-tuning the model. The attention seq len for memory attention is 32. The results show that:
+* Various improvements to attention extrapolation can only alleviate generalization issues but still do not have sequence length benefits. That is, as the sequence length increases, performance improves.
+* Memory attention, on the other hand, can achieve performance gains with extrapolated lengths, and there is a clear trend that the longer the sequence, the better the performance.
+
+more
+
+- Implementation details: [llama2Rnn.c: Adding Persistent Memory to llama2](https://zhuanlan.zhihu.com/p/681684286)
+- Comparative experiments: [Memory Attention: Enhancing the Extrapolation Performance of Transformers](https://zhuanlan.zhihu.com/p/669266950)
 
 Example
-
-```md
+```bash
 # mode = llama2Rnn_toy20M_q80.bin, train_seq_len = 256, attention_seq_len = 32
+Memory at (null) does not exist.
+Initialize memory.
+(2023-12-19 14:16:05)  User: What can you do for me?
+Assistant:  As an AI assistant, I have no personal feelings or positions, but I can provide some practical advice on human development, as follows:
 
-Enter system prompt (optional):
-(2023-11-03 11:28:49)  User: Can you provide examples of successful adoption and utilization of wearable technology in the fashion industry?
-Assistant:  Yes, here are some examples of successful adoption and utilization of wearable technology in the fashion industry:
+1. Persist in learning and growing: Continuously learning and developing oneself can improve your skills and knowledge, helping you to perform better in different fields.
 
-1. Eye Monitoring: Eye monitoring technology enables healthcare professionals to track data on patients' movements, symptoms, and treatment options. This data can be used to adjust the temperature, duration, and other factors that affect patient satisfaction, and predict which treatment works best for each individual patient.
+2. Build good interpersonal relationships: Establishing good relationships with others can gain you support and help, and also provide more opportunities and information in social situations.
 
-2. Medical Loss: VR is a popular practice that enables physicians to make real-time changes in their patients’ health data. Patients can apply their VR training, allowing them to monitor their progress and adjust their care accordingly.
+3. Maintain a healthy lifestyle: Keeping a healthy lifestyle can improve physical and mental health, reduce stress and anxiety, thereby improving the quality of life.
 
-3. Health Information Management: Patients are more likely to use wearable devices, such as smartwatches, for medical diagnosis and monitoring. They can see their blood sugar levels, heatstroke, and other health conditions. This helps them to manage their symptoms and reduce the likelihood of their health conditions.
+4. Persist in moderate exercise: Moderate exercise can improve physical fitness and mental health, and also reduce stress and anxiety, thereby improving the quality of life.
 
-4. Surveillance: Patients can use wearables to monitor their health by monitoring their movements, activities, and other factors that contribute to their health. They can monitor their heart rate, breathing patterns, and other sensory systems to make more informed decisions about the location and timing of their menstrual cycle.
+5. Maintain a positive attitude: Keeping a positive attitude can help you better cope with life's challenges and difficulties, thereby improving the quality of life.
 
-5. Safety and Health: Patients are best fluent in English as it provides them with real-time access to healthcare in a more accessible and convenient way. They can avoid getting stranded on their own or leave food, and can also save lives by smiling at home or visiting places in the house.
-
-Overall, the use of technology in the fashion industry has transformed patient care. By providing advanced training and support to healthcare professionals, researchers have been able to provide a more accurate, efficient, and intuitive approach to patient care.
-
-(2023-11-03 11:28:51)  User:
-
+(2023-12-19 14:16:20)  User:
 ```
 
-It can be seen that although the training length of the model is only 256 and the attention length is only 32, it can still generate longer coherent responses.
+It can be seen that although the model's training length is only 256, and the attention length is only 32, it can generate longer coherent responses.
 
-## How to use
+## How to Use
 
 ### 1. Compilation
 
-To compile the `llama2Rnn.c` code, you have two options:
+To compile the `llama2Rnn.c` code, there are two options:
 
 #### 1.1 Fast Compilation without OpenMP Support
 
-To quickly compile without OpenMP support, use the following command:
+For quick compilation without OpenMP support, use the following command:
 
 ```bash
 make runfast
@@ -73,58 +76,62 @@ To compile with OpenMP support, use the following command:
 make runomp
 ```
 
-### 2. Downloading the Model and Tokenizer
+### 2. Download the Model and Tokenizer
 
-Download the required [tokenizer](https://drive.google.com/file/d/1KJei_OZHFXsc8vgqz7ZGu7V8Nw-TSwFm/view?usp=drive_link) and [model](https://drive.google.com/file/d/10UOsLSmLEWMfGitKTk8J-tbrL5J-4P6l/view?usp=drive_link) files. All avaiable models can be downloaded at [here](https://drive.google.com/drive/folders/1Px5IzuUY-H2I-bd0PRsvS0rCg9Vm7iC9?usp=sharing)
+Download the required [tokenizer](https://drive.google.com/file/d/1KJei_OZHFXsc8vgqz7ZGu7V8Nw-TSwFm/view?usp=drive_link) and [model](https://drive.google.com/file/d/10UOsLSmLEWMfGitKTk8J-tbrL5J-4P6l/view?usp=drive_link) files. Optional and subsequent model updates are available [here](https://drive.google.com/drive/folders/1Px5IzuUY-H2I-bd0PRsvS0rCg9Vm7iC9?usp=sharing).
 
-```bash
-# (internal aws)All available models can be found at s3://lsy/llama2rnn.c/, and subsequent model updates will also be here
-
-oss cp s3://lsy/llama2rnn.c/llama2Rnn_toy20M_q80.bin .
-oss cp s3://lsy/llama2rnn.c/llama2_tokenizer.bin .
-```
-
-### 3. Running the Model
+### 3. Run the Model
 
 To run the Llama2RNN model indefinitely, use the following command:
 
 ```bash
-./runqm llama2Rnn_toy20M_q80.bin -z llama2_tokenizer.bin -m chat
+./runqm llama2Rnn_toy20M_q80.bin -z llama2_tokenizer.bin -o mem20M.bin -m chat
 ```
 
 ## How to Train
 
-### Data Processing
-Refer to [README_llama2.c.md](./README_llama2.c.md) for data processing.
-```bash
-python3 tinystories.py download
-python3 tinystories.py train_vocab --vocab_size=4096
-python3 tinystories.py pretokenize --vocab_size=4096
-```
-### Training
-```bash
-python3 train.py config/train_tinystories_token4096_memorynorm.py
-```
-### Save
-```bash
-python3 tokenizer.py --tokenizer-model ./data/tok4096.model
-export.py out_path/model_q80.bin --version 2 --mem --checkpoint out_path/ckpt.pt
-```
+See [siyuanseever/llama2Rnn: How to train Llama2Rnn in torch (github.com)](https://github.com/siyuanseever/llama2Rnn?tab=readme-ov-file#如何训练)
+
+## Updates
+
+- 202312.28
+  - Added training code
+- 2023.12.19
+  - Added Chinese model
+- 2023.11.13
+  - Optimized memory save, including kv cache and token position
+- 2023.11.06
+  - Update 20M(22M) chat model: memory length increased from 32 to 128 (val loss 2.1 -> 1.6)
+  - Added memory management feature
+- 2023.11.03
+  - Quantization code
+  - Release 20M chat model
+
+## Model List
+
+| model   | settings                  |
+| ------- | ------------------------- |
+| 20M     | English model, data from Wikipedia |
+| 178M    | English model, data from Wikipedia |
+| 178M_zh | Chinese model, data includes moss |
 
 ## Future Improvements
 
 - Investigate and merge `run.cu` (CUDA)
-- Add more models, such as 100M, 1B, and 7B
+- Add more models, such as 1B and 7B
 - (LoRA) Llama2 model fine-tuning
-- Support for Chinese language
 - Add training code
-- Save memory to disk feature
 - Support .txt document input
 - Perceive physical time
 
 ## Known Bugs
 
-- Pressing Enter in user input may cause invalid memory address access
+- Possible overflow issue when malloc prompt?
+- Memory access issue with chat encode?
+
+## References
+
+The current repository is built based on [llama2.c](https://github.com/karpathy/llama2.c).
 
 ## License
 
